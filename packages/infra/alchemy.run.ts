@@ -1,38 +1,55 @@
-import alchemy from "alchemy";
-import { Vite } from "alchemy/cloudflare";
-import { Worker } from "alchemy/cloudflare";
+import { Stack, type StackServices, Variable } from "alchemy";
+import {
+  type AssetsProps,
+  type ProviderRequirements,
+  providers,
+  state,
+  Vite,
+} from "alchemy/Cloudflare";
 import { config } from "dotenv";
+import { gen } from "effect/Effect";
+import type { Layer } from "effect/Layer";
+
+import Server from "../../apps/server/src/index";
 
 config({ path: "./.env" });
 config({ path: "../../apps/web/.env" });
 config({ path: "../../apps/server/.env" });
 
-const app = await alchemy("cutroom");
-
-export const web = await Vite("web", {
-  cwd: "../../apps/web",
-  assets: "dist",
-  bindings: {
-    VITE_SERVER_URL: alchemy.env.VITE_SERVER_URL!,
+const webAssets = {
+  config: {
+    notFoundHandling: "single-page-application",
   },
+  directory: "../../apps/web/dist",
+} satisfies AssetsProps;
+
+export const Web = Vite("web", {
+  assets: webAssets,
+  env: {
+    VITE_SERVER_URL: Variable("VITE_SERVER_URL"),
+  },
+  rootDir: "../../apps/web",
 });
 
-export const server = await Worker("server", {
-  cwd: "../../apps/server",
-  entrypoint: "src/index.ts",
-  compatibility: "node",
-  bindings: {
-    DATABASE_URL: alchemy.secret.env.DATABASE_URL!,
-    CORS_ORIGIN: alchemy.env.CORS_ORIGIN!,
-    BETTER_AUTH_SECRET: alchemy.secret.env.BETTER_AUTH_SECRET!,
-    BETTER_AUTH_URL: alchemy.env.BETTER_AUTH_URL!,
-  },
-  dev: {
-    port: 3000,
-  },
-});
+const cloudflareProviders = providers() as Layer<
+  ProviderRequirements,
+  never,
+  StackServices
+>;
 
-console.log(`Web    -> ${web.url}`);
-console.log(`Server -> ${server.url}`);
+export default Stack(
+  "vbaas",
+  {
+    providers: cloudflareProviders,
+    state: state(),
+  },
+  gen(function* () {
+    const web = yield* Web;
+    const server = yield* Server;
 
-await app.finalize();
+    return {
+      serverUrl: server.url,
+      webUrl: web.url,
+    };
+  })
+);

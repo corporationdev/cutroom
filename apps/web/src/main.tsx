@@ -1,15 +1,12 @@
-import { QueryClientProvider } from "@tanstack/react-query";
+import { RegistryProvider } from "@effect/atom-react";
 import { createRouter, RouterProvider } from "@tanstack/react-router";
 import ReactDOM from "react-dom/client";
 
 import Loader from "./components/loader";
 import { routeTree } from "./routeTree.gen";
-import { api, queryClient } from "./utils/api";
 
 function Wrap({ children }: { children: React.ReactNode }) {
-  return (
-    <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
-  );
+  return <RegistryProvider>{children}</RegistryProvider>;
 }
 
 const router = createRouter({
@@ -17,7 +14,7 @@ const router = createRouter({
   defaultPreload: "intent",
   scrollRestoration: true,
   defaultPendingComponent: () => <Loader />,
-  context: { api, queryClient },
+  context: {},
   Wrap,
 });
 

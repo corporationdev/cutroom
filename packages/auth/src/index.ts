@@ -8,7 +8,6 @@ import {
   userRelations,
   verification,
 } from "@vbaas/db/schema/auth";
-import { env } from "@vbaas/env/server";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 
@@ -22,8 +21,15 @@ const schema = {
   verification,
 } as const;
 
-export function createAuth() {
-  const db = createDb();
+export interface AuthConfig {
+  betterAuthSecret: string;
+  betterAuthUrl: string;
+  corsOrigin: string;
+  databaseUrl: string;
+}
+
+export function createAuth(config: AuthConfig) {
+  const db = createDb(config.databaseUrl);
 
   return betterAuth({
     database: drizzleAdapter(db, {
@@ -31,7 +37,7 @@ export function createAuth() {
 
       schema,
     }),
-    trustedOrigins: [env.CORS_ORIGIN],
+    trustedOrigins: [config.corsOrigin],
     emailAndPassword: {
       enabled: true,
     },
@@ -42,8 +48,8 @@ export function createAuth() {
     //     maxAge: 60,
     //   },
     // },
-    secret: env.BETTER_AUTH_SECRET,
-    baseURL: env.BETTER_AUTH_URL,
+    secret: config.betterAuthSecret,
+    baseURL: config.betterAuthUrl,
     advanced: {
       defaultCookieAttributes: {
         sameSite: "none",

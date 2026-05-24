@@ -13,7 +13,7 @@
       "@types/node": "^22.13.14",
       "@cloudflare/workers-types": "^4.20251213.0",
       "better-auth": "1.6.11",
-      "alchemy": "2.0.0-beta.40",
+      "alchemy": "2.0.0-beta.44",
       "effect": ">=4.0.0-beta.66",
       "@effect/platform-bun": ">=4.0.0-beta.66",
       "@effect/platform-node": ">=4.0.0-beta.66",

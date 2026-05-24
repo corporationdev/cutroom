@@ -1,5 +1,3 @@
-import type { QueryClient } from "@tanstack/react-query";
-import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import {
   createRootRouteWithContext,
   HeadContent,
@@ -9,14 +7,10 @@ import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
 import { Toaster } from "@vbaas/ui/components/sonner";
 import { TooltipProvider } from "@vbaas/ui/components/tooltip";
 import { ThemeProvider } from "@/components/theme-provider";
-import type { api } from "@/utils/api";
 
 import "../index.css";
 
-export interface RouterAppContext {
-  api: typeof api;
-  queryClient: QueryClient;
-}
+export type RouterAppContext = Record<string, never>;
 
 export const Route = createRootRouteWithContext<RouterAppContext>()({
   component: RootComponent,
@@ -55,7 +49,6 @@ function RootComponent() {
         <Toaster richColors />
       </ThemeProvider>
       <TanStackRouterDevtools position="bottom-left" />
-      <ReactQueryDevtools buttonPosition="bottom-right" position="bottom" />
     </>
   );
 }
