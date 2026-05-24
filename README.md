@@ -1,4 +1,4 @@
-# cutroom
+# vbaas
 
 This project was created with [Better-T-Stack](https://github.com/AmanVarshney01/create-better-t-stack), then migrated to an Effect HTTP API on Cloudflare Workers.
 
@@ -64,7 +64,7 @@ npx shadcn@latest add accordion dialog popover sheet table -c packages/ui
 Import shared components like this:
 
 ```tsx
-import { Button } from "@cutroom/ui/components/button";
+import { Button } from "@vbaas/ui/components/button";
 ```
 
 ### Add app-specific blocks
@@ -83,7 +83,7 @@ For more details, see the guide on [Deploying to Cloudflare with Alchemy](https:
 ## Project Structure
 
 ```
-cutroom/
+vbaas/
 ├── apps/
 │   ├── web/         # Frontend application (React + TanStack Router)
 │   └── server/      # Backend API (Effect HTTP)

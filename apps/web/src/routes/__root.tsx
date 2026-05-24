@@ -1,5 +1,3 @@
-import { Toaster } from "@cutroom/ui/components/sonner";
-import { TooltipProvider } from "@cutroom/ui/components/tooltip";
 import type { QueryClient } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import {
@@ -8,6 +6,8 @@ import {
   Outlet,
 } from "@tanstack/react-router";
 import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
+import { Toaster } from "@vbaas/ui/components/sonner";
+import { TooltipProvider } from "@vbaas/ui/components/tooltip";
 import { ThemeProvider } from "@/components/theme-provider";
 import type { api } from "@/utils/api";
 
@@ -23,11 +23,11 @@ export const Route = createRootRouteWithContext<RouterAppContext>()({
   head: () => ({
     meta: [
       {
-        title: "cutroom",
+        title: "vbaas",
       },
       {
         name: "description",
-        content: "cutroom is a web application",
+        content: "vbaas is a web application",
       },
     ],
     links: [

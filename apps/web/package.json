@@ -11,9 +11,9 @@
     "dev:bare": "vite dev"
   },
   "dependencies": {
-    "@cutroom/api": "workspace:*",
-    "@cutroom/env": "workspace:*",
-    "@cutroom/ui": "workspace:*",
+    "@vbaas/api": "workspace:*",
+    "@vbaas/env": "workspace:*",
+    "@vbaas/ui": "workspace:*",
     "@hookform/resolvers": "^5.2.2",
     "@tailwindcss/vite": "^4.2.2",
     "@tanstack/react-form": "^1.28.0",
@@ -30,7 +30,7 @@
     "zod": "catalog:"
   },
   "devDependencies": {
-    "@cutroom/config": "workspace:*",
+    "@vbaas/config": "workspace:*",
     "@tanstack/react-query-devtools": "^5.91.1",
     "@tanstack/react-router-devtools": "^1.166.13",
     "@tanstack/router-plugin": "^1.167.22",

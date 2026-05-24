@@ -8,10 +8,10 @@
     "compile": "bun build --compile --minify --sourcemap --bytecode ./src/index.ts --outfile server"
   },
   "dependencies": {
-    "@cutroom/api": "workspace:*",
-    "@cutroom/auth": "workspace:*",
-    "@cutroom/db": "workspace:*",
-    "@cutroom/env": "workspace:*",
+    "@vbaas/api": "workspace:*",
+    "@vbaas/auth": "workspace:*",
+    "@vbaas/db": "workspace:*",
+    "@vbaas/env": "workspace:*",
     "alchemy": "catalog:",
     "better-auth": "catalog:",
     "dotenv": "catalog:",
@@ -20,7 +20,7 @@
   },
   "devDependencies": {
     "@cloudflare/workers-types": "catalog:",
-    "@cutroom/config": "workspace:*",
+    "@vbaas/config": "workspace:*",
     "@types/node": "catalog:",
     "tsdown": "^0.21.9",
     "typescript": "catalog:",
