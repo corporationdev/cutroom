@@ -107,20 +107,20 @@
         "typescript": "catalog:",
       },
     },
-    "packages/composition": {
-      "name": "@vbaas/composition",
+    "packages/config": {
+      "name": "@vbaas/config",
+      "version": "0.0.0",
+    },
+    "packages/core": {
+      "name": "@vbaas/core",
       "version": "0.0.0",
       "dependencies": {
-        "zod": "catalog:",
+        "effect": "catalog:",
       },
       "devDependencies": {
         "@vbaas/config": "workspace:*",
         "typescript": "catalog:",
       },
-    },
-    "packages/config": {
-      "name": "@vbaas/config",
-      "version": "0.0.0",
     },
     "packages/db": {
       "name": "@vbaas/db",
@@ -841,9 +841,9 @@
 
     "@vbaas/auth": ["@vbaas/auth@workspace:packages/auth"],
 
-    "@vbaas/composition": ["@vbaas/composition@workspace:packages/composition"],
-
     "@vbaas/config": ["@vbaas/config@workspace:packages/config"],
+
+    "@vbaas/core": ["@vbaas/core@workspace:packages/core"],
 
     "@vbaas/db": ["@vbaas/db@workspace:packages/db"],
 
