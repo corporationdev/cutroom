@@ -13,8 +13,8 @@
   "iconLibrary": "lucide",
   "aliases": {
     "components": "@/components",
-    "utils": "@cutroom/ui/lib/utils",
-    "ui": "@cutroom/ui/components",
+    "utils": "@vbaas/ui/lib/utils",
+    "ui": "@vbaas/ui/components",
     "lib": "@/lib",
     "hooks": "@/hooks"
   },

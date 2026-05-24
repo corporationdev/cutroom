@@ -1,5 +1,5 @@
 {
-  "name": "@cutroom/auth",
+  "name": "@vbaas/auth",
   "type": "module",
   "exports": {
     ".": {
@@ -11,14 +11,14 @@
   },
   "scripts": {},
   "dependencies": {
-    "@cutroom/db": "workspace:*",
-    "@cutroom/env": "workspace:*",
+    "@vbaas/db": "workspace:*",
+    "@vbaas/env": "workspace:*",
     "better-auth": "catalog:",
     "dotenv": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {
-    "@cutroom/config": "workspace:*",
+    "@vbaas/config": "workspace:*",
     "typescript": "catalog:"
   }
 }

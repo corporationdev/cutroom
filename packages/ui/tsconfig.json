@@ -1,10 +1,10 @@
 {
-  "extends": "@cutroom/config/tsconfig.base.json",
+  "extends": "@vbaas/config/tsconfig.base.json",
   "compilerOptions": {
     "jsx": "react-jsx",
     "lib": ["ESNext", "DOM", "DOM.Iterable"],
     "paths": {
-      "@cutroom/ui/*": ["./src/*"]
+      "@vbaas/ui/*": ["./src/*"]
     },
     "strictNullChecks": true
   },

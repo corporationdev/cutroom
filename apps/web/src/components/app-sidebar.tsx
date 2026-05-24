@@ -1,3 +1,4 @@
+import { Link, useRouterState } from "@tanstack/react-router";
 import {
   Sidebar,
   SidebarContent,
@@ -11,8 +12,7 @@ import {
   SidebarMenuItem,
   SidebarRail,
   SidebarSeparator,
-} from "@cutroom/ui/components/sidebar";
-import { Link, useRouterState } from "@tanstack/react-router";
+} from "@vbaas/ui/components/sidebar";
 import { Home, LayoutDashboard } from "lucide-react";
 
 import { SidebarAccountMenu } from "@/components/sidebar-account-menu";
@@ -43,12 +43,12 @@ export function AppSidebar() {
             <SidebarMenuButton
               render={<Link to="/" />}
               size="lg"
-              tooltip="cutroom"
+              tooltip="vbaas"
             >
               <div className="flex aspect-square size-8 items-center justify-center rounded-md bg-sidebar-primary text-sidebar-primary-foreground">
                 <span className="font-semibold text-sm">C</span>
               </div>
-              <span className="font-semibold">cutroom</span>
+              <span className="font-semibold">vbaas</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>

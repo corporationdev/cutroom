@@ -13,7 +13,7 @@
   "$schema": "https://r2.better-t-stack.dev/schema.json",
   "version": "3.29.0",
   "createdAt": "2026-05-24T01:54:49.058Z",
-  "reproducibleCommand": "bun create better-t-stack@latest cutroom --frontend tanstack-router --backend hono --runtime workers --database postgres --orm drizzle --api orpc --auth better-auth --payments none --addons turborepo ultracite --examples none --db-setup neon --web-deploy cloudflare --server-deploy cloudflare --git --package-manager bun --install",
+  "reproducibleCommand": "bun create better-t-stack@latest vbaas --frontend tanstack-router --backend hono --runtime workers --database postgres --orm drizzle --api orpc --auth better-auth --payments none --addons turborepo ultracite --examples none --db-setup neon --web-deploy cloudflare --server-deploy cloudflare --git --package-manager bun --install",
   "database": "postgres",
   "orm": "drizzle",
   "backend": "hono",
@@ -27,5 +27,5 @@
   "dbSetup": "neon",
   "api": "orpc",
   "webDeploy": "cloudflare",
-  "serverDeploy": "cloudflare",
+  "serverDeploy": "cloudflare"
 }

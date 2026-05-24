@@ -1,9 +1,9 @@
+import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
 import {
   SidebarInset,
   SidebarProvider,
   SidebarTrigger,
-} from "@cutroom/ui/components/sidebar";
-import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
+} from "@vbaas/ui/components/sidebar";
 
 import { AppSidebar } from "@/components/app-sidebar";
 import Loader from "@/components/loader";

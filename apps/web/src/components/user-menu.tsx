@@ -1,4 +1,5 @@
-import { Button } from "@cutroom/ui/components/button";
+import { Link, useNavigate } from "@tanstack/react-router";
+import { Button } from "@vbaas/ui/components/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -7,9 +8,8 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@cutroom/ui/components/dropdown-menu";
-import { Skeleton } from "@cutroom/ui/components/skeleton";
-import { Link, useNavigate } from "@tanstack/react-router";
+} from "@vbaas/ui/components/dropdown-menu";
+import { Skeleton } from "@vbaas/ui/components/skeleton";
 
 import { authClient } from "@/lib/auth-client";
 
@@ -40,7 +40,6 @@ export default function UserMenu() {
           <DropdownMenuSeparator />
           <DropdownMenuItem>{session.user.email}</DropdownMenuItem>
           <DropdownMenuItem
-            variant="destructive"
             onClick={() => {
               authClient.signOut({
                 fetchOptions: {
@@ -52,6 +51,7 @@ export default function UserMenu() {
                 },
               });
             }}
+            variant="destructive"
           >
             Sign Out
           </DropdownMenuItem>

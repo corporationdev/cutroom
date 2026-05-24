@@ -1,8 +1,26 @@
-import { createDb } from "@cutroom/db";
-import * as schema from "@cutroom/db/schema/auth";
-import { env } from "@cutroom/env/server";
+import { createDb } from "@vbaas/db";
+import {
+  account,
+  accountRelations,
+  session,
+  sessionRelations,
+  user,
+  userRelations,
+  verification,
+} from "@vbaas/db/schema/auth";
+import { env } from "@vbaas/env/server";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
+
+const schema = {
+  account,
+  accountRelations,
+  session,
+  sessionRelations,
+  user,
+  userRelations,
+  verification,
+} as const;
 
 export function createAuth() {
   const db = createDb();
@@ -11,7 +29,7 @@ export function createAuth() {
     database: drizzleAdapter(db, {
       provider: "pg",
 
-      schema: schema,
+      schema,
     }),
     trustedOrigins: [env.CORS_ORIGIN],
     emailAndPassword: {

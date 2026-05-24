@@ -2,24 +2,24 @@
 
 import { mergeProps } from "@base-ui/react/merge-props";
 import { useRender } from "@base-ui/react/use-render";
-import { Button } from "@cutroom/ui/components/button";
-import { Input } from "@cutroom/ui/components/input";
-import { Separator } from "@cutroom/ui/components/separator";
+import { Button } from "@vbaas/ui/components/button";
+import { Input } from "@vbaas/ui/components/input";
+import { Separator } from "@vbaas/ui/components/separator";
 import {
   Sheet,
   SheetContent,
   SheetDescription,
   SheetHeader,
   SheetTitle,
-} from "@cutroom/ui/components/sheet";
-import { Skeleton } from "@cutroom/ui/components/skeleton";
+} from "@vbaas/ui/components/sheet";
+import { Skeleton } from "@vbaas/ui/components/skeleton";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
-} from "@cutroom/ui/components/tooltip";
-import { useIsMobile } from "@cutroom/ui/hooks/use-mobile";
-import { cn } from "@cutroom/ui/lib/utils";
+} from "@vbaas/ui/components/tooltip";
+import { useIsMobile } from "@vbaas/ui/hooks/use-mobile";
+import { cn } from "@vbaas/ui/lib/utils";
 import { cva, type VariantProps } from "class-variance-authority";
 import { PanelLeftIcon } from "lucide-react";
 import {

@@ -1,4 +1,4 @@
-import { cn } from "@cutroom/ui/lib/utils";
+import { cn } from "@vbaas/ui/lib/utils";
 import type * as React from "react";
 
 function Label({ className, ...props }: React.ComponentProps<"label">) {

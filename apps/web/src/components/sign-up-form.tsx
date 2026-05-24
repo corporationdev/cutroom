@@ -1,8 +1,8 @@
-import { Button } from "@cutroom/ui/components/button";
-import { Input } from "@cutroom/ui/components/input";
-import { Label } from "@cutroom/ui/components/label";
 import { useForm } from "@tanstack/react-form";
 import { useNavigate } from "@tanstack/react-router";
+import { Button } from "@vbaas/ui/components/button";
+import { Input } from "@vbaas/ui/components/input";
+import { Label } from "@vbaas/ui/components/label";
 import { toast } from "sonner";
 import z from "zod";
 

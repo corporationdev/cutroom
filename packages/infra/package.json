@@ -1,5 +1,5 @@
 {
-  "name": "@cutroom/infra",
+  "name": "@vbaas/infra",
   "private": true,
   "type": "module",
   "scripts": {
@@ -9,10 +9,11 @@
   },
   "dependencies": {
     "dotenv": "catalog:",
+    "effect": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {
-    "@cutroom/config": "workspace:*",
+    "@vbaas/config": "workspace:*",
     "alchemy": "catalog:",
     "typescript": "catalog:"
   }

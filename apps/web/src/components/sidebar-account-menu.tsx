@@ -1,3 +1,4 @@
+import { Link, useNavigate } from "@tanstack/react-router";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -6,14 +7,13 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@cutroom/ui/components/dropdown-menu";
+} from "@vbaas/ui/components/dropdown-menu";
 import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-} from "@cutroom/ui/components/sidebar";
-import { Skeleton } from "@cutroom/ui/components/skeleton";
-import { Link, useNavigate } from "@tanstack/react-router";
+} from "@vbaas/ui/components/sidebar";
+import { Skeleton } from "@vbaas/ui/components/skeleton";
 import { ChevronsUpDown, LogIn, LogOut, Moon, Sun, User2 } from "lucide-react";
 import { useTheme } from "next-themes";
 import { authClient } from "@/lib/auth-client";

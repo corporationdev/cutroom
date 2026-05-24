@@ -12,19 +12,16 @@
     "@cutroom/auth": "workspace:*",
     "@cutroom/db": "workspace:*",
     "@cutroom/env": "workspace:*",
-    "@orpc/openapi": "catalog:",
-    "@orpc/server": "catalog:",
-    "@orpc/zod": "catalog:",
+    "alchemy": "catalog:",
     "better-auth": "catalog:",
     "dotenv": "catalog:",
-    "hono": "catalog:",
+    "effect": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "catalog:",
     "@cutroom/config": "workspace:*",
     "@types/node": "catalog:",
-    "alchemy": "catalog:",
     "tsdown": "^0.21.9",
     "typescript": "catalog:",
     "wrangler": "^4.77.0"

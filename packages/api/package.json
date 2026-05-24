@@ -1,5 +1,5 @@
 {
-  "name": "@cutroom/api",
+  "name": "@vbaas/api",
   "type": "module",
   "exports": {
     ".": {
@@ -11,19 +11,12 @@
   },
   "scripts": {},
   "dependencies": {
-    "@cutroom/auth": "workspace:*",
-    "@cutroom/db": "workspace:*",
-    "@cutroom/env": "workspace:*",
-    "@orpc/client": "catalog:",
-    "@orpc/openapi": "catalog:",
-    "@orpc/server": "catalog:",
-    "@orpc/zod": "catalog:",
     "dotenv": "catalog:",
+    "effect": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {
-    "@cutroom/config": "workspace:*",
-    "hono": "catalog:",
+    "@vbaas/config": "workspace:*",
     "typescript": "catalog:"
   }
 }

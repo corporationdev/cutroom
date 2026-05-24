@@ -1,4 +1,4 @@
-import { env } from "@cutroom/env/web";
+import { env } from "@vbaas/env/web";
 import { createAuthClient } from "better-auth/react";
 
 export const authClient = createAuthClient({

@@ -12,11 +12,11 @@
   },
   "iconLibrary": "lucide",
   "aliases": {
-    "components": "@cutroom/ui/components",
-    "utils": "@cutroom/ui/lib/utils",
-    "hooks": "@cutroom/ui/hooks",
-    "lib": "@cutroom/ui/lib",
-    "ui": "@cutroom/ui/components"
+    "components": "@vbaas/ui/components",
+    "utils": "@vbaas/ui/lib/utils",
+    "hooks": "@vbaas/ui/hooks",
+    "lib": "@vbaas/ui/lib",
+    "ui": "@vbaas/ui/components"
   },
   "menuColor": "default",
   "menuAccent": "subtle",

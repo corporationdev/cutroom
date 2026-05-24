@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 
-import { orpc } from "@/utils/orpc";
+import { api } from "@/utils/api";
 
 export const Route = createFileRoute("/_app/")({
   component: HomeComponent,
@@ -42,7 +42,7 @@ function getApiStatusText({
 }
 
 function HomeComponent() {
-  const healthCheck = useQuery(orpc.healthCheck.queryOptions());
+  const healthCheck = useQuery(api.healthCheck.queryOptions());
   const apiStatusText = getApiStatusText({
     isLoading: healthCheck.isLoading,
     isConnected: !!healthCheck.data,
