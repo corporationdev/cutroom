@@ -14,8 +14,10 @@ import type {
   CommandResult,
   FfmpegRenderInput,
   RenderCompositionInput,
+  RenderEncodedVideoResult,
   RenderFrameSequenceInput,
   RenderFrameSequenceResult,
+  RenderFrameStreamResult,
   RenderPlan,
   ResolvedAsset,
 } from "./types";
@@ -69,9 +71,15 @@ export class Ffmpeg extends Context.Service<Ffmpeg, FfmpegShape>()(
 }
 
 export interface FrameSequenceRendererShape {
+  readonly renderEncodedVideo: (
+    input: RenderFrameSequenceInput
+  ) => Effect.Effect<RenderEncodedVideoResult, FrameSequenceFailed>;
   readonly renderFrameSequence: (
     input: RenderFrameSequenceInput
   ) => Effect.Effect<RenderFrameSequenceResult, FrameSequenceFailed>;
+  readonly renderFrameStream: (
+    input: RenderFrameSequenceInput
+  ) => Effect.Effect<RenderFrameStreamResult, FrameSequenceFailed>;
 }
 
 export class FrameSequenceRenderer extends Context.Service<

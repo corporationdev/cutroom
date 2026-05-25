@@ -99,8 +99,19 @@ export interface RenderFrameSequenceResult {
   readonly frameRate: number;
 }
 
+export interface RenderFrameStreamResult {
+  readonly frameRate: number;
+  readonly frames: AsyncIterable<Uint8Array>;
+}
+
+export interface RenderEncodedVideoResult {
+  readonly path: string;
+}
+
 export interface FfmpegRenderInput {
+  readonly encodedVideo?: RenderEncodedVideoResult;
   readonly frameSequence?: RenderFrameSequenceResult;
+  readonly frameStream?: RenderFrameStreamResult;
   readonly plan: RenderPlan;
   readonly quality?: RenderQuality;
 }

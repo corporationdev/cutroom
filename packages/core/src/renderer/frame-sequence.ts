@@ -1,7 +1,8 @@
 import { existsSync } from "node:fs";
-import { mkdir, writeFile } from "node:fs/promises";
-import { join } from "node:path";
-import { pathToFileURL } from "node:url";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { createServer, type Server } from "node:http";
+import { extname, join, normalize, resolve, sep } from "node:path";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 import { Effect, Layer } from "effect";
 import puppeteer, { type Browser } from "puppeteer-core";
@@ -10,13 +11,17 @@ import { FrameSequenceFailed } from "./errors";
 import { FrameSequenceRenderer } from "./services";
 import type {
   HtmlLayer,
+  RenderEncodedVideoResult,
   RenderFrameSequenceInput,
   RenderFrameSequenceResult,
+  RenderFrameStreamResult,
   RenderPlan,
   VisualLayer,
 } from "./types";
 
 const defaultTextColor = "#ffffff";
+const rendererHtml =
+  '<!doctype html><html><body style="margin:0;background:transparent"><canvas id="frame"></canvas></body></html>';
 const chromeCandidates = [
   "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
   "/Applications/Chromium.app/Contents/MacOS/Chromium",
@@ -92,6 +97,17 @@ interface BrowserCaptionLayer {
 }
 
 export const FrameSequenceRendererLive = Layer.succeed(FrameSequenceRenderer, {
+  renderEncodedVideo: (input) =>
+    Effect.tryPromise({
+      catch: (error) =>
+        new FrameSequenceFailed({
+          message:
+            error instanceof Error
+              ? error.message
+              : "Unable to encode video in browser.",
+        }),
+      try: () => renderEncodedVideo(input),
+    }),
   renderFrameSequence: (input) =>
     Effect.tryPromise({
       catch: (error) =>
@@ -103,6 +119,56 @@ export const FrameSequenceRendererLive = Layer.succeed(FrameSequenceRenderer, {
         }),
       try: () => renderFrameSequence(input),
     }),
+  renderFrameStream: (input) => Effect.succeed(renderFrameStream(input)),
+});
+
+export const renderEncodedVideo = async ({
+  outputDirectory,
+  plan,
+}: RenderFrameSequenceInput): Promise<RenderEncodedVideoResult> => {
+  await mkdir(outputDirectory, { recursive: true });
+
+  const browser = await launchBrowser();
+  const moduleServer = await createStaticFileServer(getMediabunnyModuleRoot());
+
+  try {
+    const page = await browser.newPage();
+    await page.setViewport({
+      height: plan.canvas.height,
+      width: plan.canvas.width,
+      deviceScaleFactor: 1,
+    });
+    await page.goto(`${moduleServer.origin}/renderer.html`);
+
+    const scene = withBrowserServedAssets(
+      buildBrowserRenderScene(plan),
+      moduleServer.origin
+    );
+    await page.evaluate(initializeBrowserRenderer, scene);
+
+    const encodedVideoBytes = await page.evaluate(encodeBrowserVideo, {
+      durationFrames: plan.durationFrames,
+      fps: plan.canvas.fps,
+      mediabunnyUrl: `${moduleServer.origin}/mediabunny.mjs`,
+    });
+    const outputPath = join(outputDirectory, "webcodecs-video.mp4");
+    await writeFile(outputPath, Buffer.from(encodedVideoBytes));
+
+    return {
+      path: outputPath,
+    };
+  } finally {
+    await moduleServer.close();
+    await browser.close();
+  }
+};
+
+export const renderFrameStream = ({
+  outputDirectory,
+  plan,
+}: RenderFrameSequenceInput): RenderFrameStreamResult => ({
+  frameRate: plan.canvas.fps,
+  frames: createPngFrameStream({ outputDirectory, plan }),
 });
 
 export const renderFrameSequence = async ({
@@ -112,10 +178,7 @@ export const renderFrameSequence = async ({
   await mkdir(outputDirectory, { recursive: true });
 
   const rendererHtmlPath = join(outputDirectory, "renderer.html");
-  await writeFile(
-    rendererHtmlPath,
-    '<!doctype html><html><body style="margin:0;background:transparent"><canvas id="frame"></canvas></body></html>'
-  );
+  await writeFile(rendererHtmlPath, rendererHtml);
 
   const browser = await launchBrowser();
 
@@ -147,6 +210,208 @@ export const renderFrameSequence = async ({
   };
 };
 
+async function* createPngFrameStream({
+  outputDirectory,
+  plan,
+}: RenderFrameSequenceInput): AsyncIterable<Uint8Array> {
+  await mkdir(outputDirectory, { recursive: true });
+
+  const rendererHtmlPath = join(outputDirectory, "renderer.html");
+  await writeFile(rendererHtmlPath, rendererHtml);
+
+  const browser = await launchBrowser();
+  const frameReceiver = await createFrameReceiver();
+
+  try {
+    const page = await browser.newPage();
+    await page.setViewport({
+      height: plan.canvas.height,
+      width: plan.canvas.width,
+      deviceScaleFactor: 1,
+    });
+    await page.goto(pathToFileURL(rendererHtmlPath).href);
+
+    const scene = buildBrowserRenderScene(plan);
+    await page.evaluate(initializeBrowserRenderer, scene);
+
+    for (let frame = 0; frame < plan.durationFrames; frame++) {
+      const nextFrame = frameReceiver.nextFrame();
+      await page.evaluate(renderBrowserFrameToEndpoint, {
+        endpoint: frameReceiver.endpoint,
+        frame,
+      });
+      yield await nextFrame;
+    }
+  } finally {
+    await frameReceiver.close();
+    await browser.close();
+  }
+}
+
+interface FrameReceiver {
+  readonly close: () => Promise<void>;
+  readonly endpoint: string;
+  readonly nextFrame: () => Promise<Uint8Array>;
+}
+
+interface StaticFileServer {
+  readonly close: () => Promise<void>;
+  readonly origin: string;
+}
+
+const createStaticFileServer = async (
+  rootDirectory: string
+): Promise<StaticFileServer> => {
+  const root = normalize(rootDirectory);
+  const server = createServer(async (request, response) => {
+    response.setHeader("Access-Control-Allow-Origin", "*");
+
+    try {
+      const requestUrl = new URL(request.url ?? "/", "http://127.0.0.1");
+      const pathname = decodeURIComponent(requestUrl.pathname);
+
+      if (pathname === "/renderer.html") {
+        response.setHeader("Content-Type", "text/html");
+        response.writeHead(200);
+        response.end(rendererHtml);
+        return;
+      }
+
+      if (pathname === "/asset") {
+        const assetPath = requestUrl.searchParams.get("path");
+        if (!assetPath) {
+          response.writeHead(400);
+          response.end();
+          return;
+        }
+
+        const content = await readFile(assetPath);
+        response.setHeader("Content-Type", getContentType(assetPath));
+        response.writeHead(200);
+        response.end(content);
+        return;
+      }
+
+      const normalizedPath = normalize(join(root, pathname));
+
+      if (!(normalizedPath === root || normalizedPath.startsWith(root + sep))) {
+        response.writeHead(403);
+        response.end();
+        return;
+      }
+
+      const content = await readFile(normalizedPath);
+      response.setHeader("Content-Type", getContentType(normalizedPath));
+      response.writeHead(200);
+      response.end(content);
+    } catch {
+      response.writeHead(404);
+      response.end();
+    }
+  });
+
+  await new Promise<void>((resolveServer, reject) => {
+    server.once("error", reject);
+    server.listen(0, "127.0.0.1", () => {
+      server.off("error", reject);
+      resolveServer();
+    });
+  });
+
+  return {
+    close: () => closeServer(server),
+    origin: `http://127.0.0.1:${getServerPort(server)}`,
+  };
+};
+
+const getContentType = (path: string): string => {
+  if (extname(path) === ".js" || extname(path) === ".mjs") {
+    return "text/javascript";
+  }
+
+  if (extname(path) === ".json") {
+    return "application/json";
+  }
+
+  return "application/octet-stream";
+};
+
+const createFrameReceiver = async (): Promise<FrameReceiver> => {
+  let pendingResolve: ((frame: Uint8Array) => void) | undefined;
+  let pendingReject: ((error: Error) => void) | undefined;
+  const server = createServer((request, response) => {
+    response.setHeader("Access-Control-Allow-Origin", "*");
+    response.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
+
+    if (request.method === "OPTIONS") {
+      response.writeHead(204);
+      response.end();
+      return;
+    }
+
+    if (request.method !== "POST") {
+      response.writeHead(405);
+      response.end();
+      return;
+    }
+
+    const chunks: Buffer[] = [];
+    request.on("data", (chunk: Buffer) => {
+      chunks.push(chunk);
+    });
+    request.on("error", (error) => {
+      pendingReject?.(error);
+    });
+    request.on("end", () => {
+      pendingResolve?.(Buffer.concat(chunks));
+      pendingResolve = undefined;
+      pendingReject = undefined;
+      response.writeHead(204);
+      response.end();
+    });
+  });
+
+  await new Promise<void>((resolve, reject) => {
+    server.once("error", reject);
+    server.listen(0, "127.0.0.1", () => {
+      server.off("error", reject);
+      resolve();
+    });
+  });
+
+  return {
+    close: () => closeServer(server),
+    endpoint: `http://127.0.0.1:${getServerPort(server)}/frame`,
+    nextFrame: () =>
+      new Promise<Uint8Array>((resolve, reject) => {
+        pendingResolve = resolve;
+        pendingReject = reject;
+      }),
+  };
+};
+
+const closeServer = (server: Server): Promise<void> =>
+  new Promise((resolve, reject) => {
+    server.close((error) => {
+      if (error) {
+        reject(error);
+        return;
+      }
+
+      resolve();
+    });
+  });
+
+const getServerPort = (server: Server): number => {
+  const address = server.address();
+
+  if (!(address && typeof address === "object")) {
+    throw new Error("Frame receiver did not bind to a port.");
+  }
+
+  return address.port;
+};
+
 const launchBrowser = (): Promise<Browser> => {
   const executablePath = getBrowserExecutablePath();
 
@@ -157,6 +422,7 @@ const launchBrowser = (): Promise<Browser> => {
       "--allow-file-access-from-files",
       "--autoplay-policy=no-user-gesture-required",
       "--disable-dev-shm-usage",
+      "--disable-web-security",
       "--no-sandbox",
     ],
   });
@@ -183,6 +449,9 @@ const getBrowserExecutablePath = (): string => {
     "Unable to find Chromium. Set VBAAS_CHROMIUM_PATH or PUPPETEER_EXECUTABLE_PATH."
   );
 };
+
+const getMediabunnyModuleRoot = (): string =>
+  resolve(import.meta.dirname, "../../node_modules/mediabunny/dist/bundles");
 
 const buildBrowserRenderScene = (plan: RenderPlan): BrowserRenderScene => ({
   canvas: plan.canvas,
@@ -333,9 +602,33 @@ const getLayerOrder = (layer: BrowserRenderLayer): number => {
   return 2;
 };
 
+const withBrowserServedAssets = (
+  scene: BrowserRenderScene,
+  origin: string
+): BrowserRenderScene => ({
+  ...scene,
+  layers: scene.layers.map((layer) => {
+    if (layer.type !== "image" && layer.type !== "video") {
+      return layer;
+    }
+
+    if (!layer.assetUrl.startsWith("file://")) {
+      return layer;
+    }
+
+    return {
+      ...layer,
+      assetUrl: `${origin}/asset?path=${encodeURIComponent(
+        fileURLToPath(layer.assetUrl)
+      )}`,
+    };
+  }),
+});
+
 function initializeBrowserRenderer(scene: BrowserRenderScene) {
   const browserDefaultBackground = "#050507";
   const browserDefaultTextShadowColor = "rgba(0, 0, 0, 0.72)";
+  const textLinesByKey = new Map<string, string[]>();
   const sourceById = new Map<string, HTMLImageElement | HTMLVideoElement>();
   const canvas = document.getElementById("frame") as HTMLCanvasElement | null;
 
@@ -392,7 +685,11 @@ function initializeBrowserRenderer(scene: BrowserRenderScene) {
         resolve();
       };
       video.addEventListener("seeked", onSeeked, { once: true });
-      video.currentTime = targetTime;
+      if (typeof video.fastSeek === "function") {
+        video.fastSeek(targetTime);
+      } else {
+        video.currentTime = targetTime;
+      }
     });
 
   const getSourceSize = (source: CanvasImageSource) => {
@@ -495,6 +792,36 @@ function initializeBrowserRenderer(scene: BrowserRenderScene) {
     return lines.length > 0 ? lines : [""];
   };
 
+  const getCachedTextLines = ({
+    context,
+    font,
+    id,
+    maxWidth,
+    text,
+  }: {
+    context: CanvasRenderingContext2D;
+    font: string;
+    id: string;
+    maxWidth: number;
+    text: string;
+  }) => {
+    const key = `${id}:${font}:${maxWidth}:${text}`;
+    const cachedLines = textLinesByKey.get(key);
+
+    if (cachedLines) {
+      return cachedLines;
+    }
+
+    const lines = wrapText({
+      context,
+      font,
+      maxWidth,
+      text,
+    });
+    textLinesByKey.set(key, lines);
+    return lines;
+  };
+
   const getTextAlignX = ({
     align,
     width,
@@ -574,9 +901,10 @@ function initializeBrowserRenderer(scene: BrowserRenderScene) {
     const font = `${layer.fontWeight} ${layer.fontSize}px ${quoteFontFamily(
       layer.fontFamily
     )}, Arial, sans-serif`;
-    const lines = wrapText({
+    const lines = getCachedTextLines({
       context,
       font,
+      id: layer.id,
       maxWidth: layer.width,
       text: layer.text,
     });
@@ -635,9 +963,10 @@ function initializeBrowserRenderer(scene: BrowserRenderScene) {
     context.shadowBlur = 14;
     context.shadowColor = browserDefaultTextShadowColor;
 
-    const lines = wrapText({
+    const lines = getCachedTextLines({
       context,
       font,
+      id: layer.id,
       maxWidth: layer.maxWidth - 68,
       text: layer.text,
     }).slice(0, 2);
@@ -725,7 +1054,7 @@ function initializeBrowserRenderer(scene: BrowserRenderScene) {
       }
     }
 
-    return canvas.toDataURL("image/png");
+    return;
   };
 
   Object.assign(window, {
@@ -740,7 +1069,7 @@ async function renderBrowserFrame(frame: number): Promise<string> {
   ).__vbaasRenderReady;
   const renderFrame = (
     window as typeof window & {
-      __vbaasRenderFrame?: (frame: number) => Promise<string>;
+      __vbaasRenderFrame?: (frame: number) => Promise<void>;
     }
   ).__vbaasRenderFrame;
 
@@ -749,5 +1078,119 @@ async function renderBrowserFrame(frame: number): Promise<string> {
   }
 
   await renderReady;
-  return renderFrame(frame);
+  await renderFrame(frame);
+
+  const canvas = document.getElementById("frame") as HTMLCanvasElement | null;
+  if (!canvas) {
+    throw new Error("Frame canvas not found.");
+  }
+
+  return canvas.toDataURL("image/png");
+}
+
+async function renderBrowserFrameToEndpoint({
+  endpoint,
+  frame,
+}: {
+  endpoint: string;
+  frame: number;
+}): Promise<void> {
+  const renderReady = (
+    window as typeof window & { __vbaasRenderReady?: Promise<void> }
+  ).__vbaasRenderReady;
+  const renderFrame = (
+    window as typeof window & {
+      __vbaasRenderFrame?: (frame: number) => Promise<void>;
+    }
+  ).__vbaasRenderFrame;
+
+  if (!renderFrame) {
+    throw new Error("Browser renderer was not initialized.");
+  }
+
+  await renderReady;
+  await renderFrame(frame);
+
+  const canvas = document.getElementById("frame") as HTMLCanvasElement | null;
+  if (!canvas) {
+    throw new Error("Frame canvas not found.");
+  }
+
+  const blob = await new Promise<Blob>((resolve, reject) => {
+    canvas.toBlob((value) => {
+      if (value) {
+        resolve(value);
+        return;
+      }
+
+      reject(new Error("Unable to encode frame blob."));
+    }, "image/png");
+  });
+  const response = await fetch(endpoint, {
+    body: blob,
+    method: "POST",
+  });
+
+  if (!response.ok) {
+    throw new Error(`Unable to send frame ${frame}.`);
+  }
+}
+
+async function encodeBrowserVideo({
+  durationFrames,
+  fps,
+  mediabunnyUrl,
+}: {
+  durationFrames: number;
+  fps: number;
+  mediabunnyUrl: string;
+}): Promise<number[]> {
+  const { BufferTarget, CanvasSource, Mp4OutputFormat, Output, QUALITY_HIGH } =
+    await import(mediabunnyUrl);
+  const canvas = document.getElementById("frame") as HTMLCanvasElement | null;
+
+  if (!canvas) {
+    throw new Error("Frame canvas not found.");
+  }
+
+  const output = new Output({
+    format: new Mp4OutputFormat(),
+    target: new BufferTarget(),
+  });
+  const videoSource = new CanvasSource(canvas, {
+    bitrate: QUALITY_HIGH,
+    codec: "avc",
+    keyFrameInterval: 2,
+  });
+  output.addVideoTrack(videoSource, { frameRate: fps });
+  await output.start();
+
+  const renderReady = (
+    window as typeof window & { __vbaasRenderReady?: Promise<void> }
+  ).__vbaasRenderReady;
+  const renderFrame = (
+    window as typeof window & {
+      __vbaasRenderFrame?: (frame: number) => Promise<void>;
+    }
+  ).__vbaasRenderFrame;
+
+  if (!renderFrame) {
+    throw new Error("Browser renderer was not initialized.");
+  }
+
+  await renderReady;
+
+  for (let frame = 0; frame < durationFrames; frame++) {
+    await renderFrame(frame);
+    await videoSource.add(frame / fps, 1 / fps);
+  }
+
+  await output.finalize();
+
+  const buffer = output.target.buffer;
+  if (!buffer) {
+    throw new Error("Mediabunny did not produce an output buffer.");
+  }
+
+  return Array.from(new Uint8Array(buffer));
 }

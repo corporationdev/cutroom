@@ -1,6 +1,7 @@
 import { mkdir } from "node:fs/promises";
 import { dirname } from "node:path";
 
+import { spawn } from "bun";
 import { Effect, Layer } from "effect";
 
 import type { Layout } from "../schema";
@@ -42,30 +43,38 @@ export const FfmpegLive = Layer.effect(
               mkdir(dirname(input.plan.outputPath), { recursive: true }),
           });
 
-          yield* commandExecutor
-            .run({
-              args,
-              binary: ffmpegBinary,
-            })
-            .pipe(
-              Effect.mapError(
-                (error) =>
-                  new FfmpegFailed({
-                    message: [
-                      error.message,
-                      error.stderr ? `stderr: ${error.stderr}` : undefined,
-                    ]
-                      .filter(Boolean)
-                      .join("\n"),
-                  })
-              )
-            );
+          if (input.frameStream) {
+            yield* runFfmpegWithFrameStream({ args, input });
+          } else {
+            yield* commandExecutor
+              .run({
+                args,
+                binary: ffmpegBinary,
+              })
+              .pipe(
+                Effect.mapError(
+                  (error) =>
+                    new FfmpegFailed({
+                      message: [
+                        error.message,
+                        error.stderr ? `stderr: ${error.stderr}` : undefined,
+                      ]
+                        .filter(Boolean)
+                        .join("\n"),
+                    })
+                )
+              );
+          }
         }),
     };
   })
 );
 
 export const buildFfmpegArgs = (input: FfmpegRenderInput): string[] => {
+  if (input.encodedVideo) {
+    return buildEncodedVideoFfmpegArgs(input);
+  }
+
   const filterGraph = buildFilterGraph(input);
 
   return [
@@ -73,7 +82,7 @@ export const buildFfmpegArgs = (input: FfmpegRenderInput): string[] => {
     "-hide_banner",
     "-loglevel",
     "error",
-    ...buildFrameSequenceInputArgs(input),
+    ...buildFrameInputArgs(input),
     ...getFfmpegMediaInputs(input).flatMap((mediaInput) =>
       buildInputArgs(mediaInput, input.plan.canvas)
     ),
@@ -82,14 +91,40 @@ export const buildFfmpegArgs = (input: FfmpegRenderInput): string[] => {
     "-map",
     "[vout]",
     ...buildAudioOutputArgs(input),
-    "-c:v",
-    defaultVideoCodec,
-    "-preset",
-    defaultPreset,
-    "-crf",
-    getCrf(input),
+    ...buildVideoEncodingArgs(input),
     "-pix_fmt",
     "yuv420p",
+    "-movflags",
+    "+faststart",
+    input.plan.outputPath,
+  ];
+};
+
+const buildEncodedVideoFfmpegArgs = (input: FfmpegRenderInput): string[] => {
+  if (!input.encodedVideo) {
+    return [];
+  }
+
+  const hasAudio = input.plan.audioLayers.length > 0;
+
+  return [
+    "-y",
+    "-hide_banner",
+    "-loglevel",
+    "error",
+    "-i",
+    input.encodedVideo.path,
+    ...getFfmpegMediaInputs(input).flatMap((mediaInput) =>
+      buildInputArgs(mediaInput, input.plan.canvas)
+    ),
+    ...(hasAudio
+      ? ["-filter_complex", buildAudioFilters(input).join(";")]
+      : []),
+    "-map",
+    "0:v",
+    ...(hasAudio ? buildAudioOutputArgs(input) : ["-an"]),
+    "-c:v",
+    "copy",
     "-movflags",
     "+faststart",
     input.plan.outputPath,
@@ -112,14 +147,70 @@ const buildFfmpegArgsEffect = (
   return Effect.succeed(buildFfmpegArgs(input));
 };
 
+const runFfmpegWithFrameStream = ({
+  args,
+  input,
+}: {
+  readonly args: readonly string[];
+  readonly input: FfmpegRenderInput;
+}): Effect.Effect<void, FfmpegFailed> =>
+  Effect.tryPromise({
+    catch: (error) =>
+      new FfmpegFailed({
+        message:
+          error instanceof Error
+            ? error.message
+            : "Unable to stream rendered frames into ffmpeg.",
+      }),
+    try: async () => {
+      if (!input.frameStream) {
+        return;
+      }
+
+      const process = spawn([ffmpegBinary, ...args], {
+        stderr: "pipe",
+        stdin: "pipe",
+        stdout: "pipe",
+      });
+      const stdoutPromise = new Response(process.stdout).arrayBuffer();
+      const stderrPromise = new Response(process.stderr).text();
+      try {
+        for await (const frame of input.frameStream.frames) {
+          process.stdin.write(frame);
+        }
+      } finally {
+        process.stdin.end();
+      }
+
+      const [stderr, exitCode] = await Promise.all([
+        stderrPromise,
+        process.exited,
+        stdoutPromise,
+      ]).then(([stderrResult, exitCodeResult]) => [
+        stderrResult,
+        exitCodeResult,
+      ]);
+
+      if (exitCode !== 0) {
+        throw new Error(
+          [
+            `ffmpeg exited with code ${exitCode}.`,
+            stderr && `stderr: ${stderr}`,
+          ]
+            .filter(Boolean)
+            .join("\n")
+        );
+      }
+    },
+  });
+
 const getUnsupportedReason = (input: FfmpegRenderInput): string | undefined => {
-  const missingVisualInput =
-    input.frameSequence === undefined
-      ? input.plan.visualLayers.find(
-          (visualLayer) =>
-            getInputForLayer(input, visualLayer.inputIndex) === undefined
-        )
-      : undefined;
+  const missingVisualInput = hasRenderedFrameInput(input)
+    ? undefined
+    : input.plan.visualLayers.find(
+        (visualLayer) =>
+          getInputForLayer(input, visualLayer.inputIndex) === undefined
+      );
 
   if (missingVisualInput) {
     return `Missing ffmpeg input for visual layer "${missingVisualInput.clipId}".`;
@@ -179,7 +270,7 @@ const buildFilterGraph = (input: FfmpegRenderInput): string => {
   const durationSeconds = getDurationSeconds(input);
   let currentCanvasLabel = "canvas0";
 
-  if (input.frameSequence) {
+  if (hasRenderedFrameInput(input)) {
     parts.push(`[0:v]format=rgba[${currentCanvasLabel}]`);
   } else {
     parts.push(
@@ -388,6 +479,21 @@ const buildAudioOutputArgs = (input: FfmpegRenderInput): string[] => {
   ];
 };
 
+const buildVideoEncodingArgs = (input: FfmpegRenderInput): string[] => {
+  if (input.encodedVideo) {
+    return ["-c:v", "copy"];
+  }
+
+  return [
+    "-c:v",
+    defaultVideoCodec,
+    "-preset",
+    defaultPreset,
+    "-crf",
+    getCrf(input),
+  ];
+};
+
 interface RequiredOverlayLayout {
   readonly fit: "contain" | "cover" | "fill" | "none";
   readonly height: number;
@@ -418,7 +524,7 @@ const getInputForLayer = (
 const getFfmpegMediaInputs = (
   input: FfmpegRenderInput
 ): readonly RenderMediaInput[] => {
-  if (!input.frameSequence) {
+  if (!hasRenderedFrameInput(input)) {
     return input.plan.inputs;
   }
 
@@ -435,7 +541,7 @@ const getFfmpegInputIndexForMediaInput = (
   input: FfmpegRenderInput,
   mediaInput: RenderMediaInput
 ): number => {
-  if (!input.frameSequence) {
+  if (!hasRenderedFrameInput(input)) {
     return mediaInput.inputIndex;
   }
 
@@ -447,18 +553,40 @@ const getFfmpegInputIndexForMediaInput = (
   );
 };
 
-const buildFrameSequenceInputArgs = (input: FfmpegRenderInput): string[] => {
-  if (!input.frameSequence) {
-    return [];
+const buildFrameInputArgs = (input: FfmpegRenderInput): string[] => {
+  if (input.encodedVideo) {
+    return ["-i", input.encodedVideo.path];
   }
 
-  return [
-    "-framerate",
-    formatNumber(input.frameSequence.frameRate),
-    "-i",
-    input.frameSequence.framePattern,
-  ];
+  if (input.frameStream) {
+    return [
+      "-framerate",
+      formatNumber(input.frameStream.frameRate),
+      "-f",
+      "image2pipe",
+      "-vcodec",
+      "png",
+      "-i",
+      "pipe:0",
+    ];
+  }
+
+  if (input.frameSequence) {
+    return [
+      "-framerate",
+      formatNumber(input.frameSequence.frameRate),
+      "-i",
+      input.frameSequence.framePattern,
+    ];
+  }
+
+  return [];
 };
+
+const hasRenderedFrameInput = (input: FfmpegRenderInput): boolean =>
+  input.encodedVideo !== undefined ||
+  input.frameSequence !== undefined ||
+  input.frameStream !== undefined;
 
 const getDurationSeconds = (input: FfmpegRenderInput): number =>
   framesToSeconds(input.plan.durationFrames, input.plan.canvas.fps);

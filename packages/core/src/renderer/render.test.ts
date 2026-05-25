@@ -84,9 +84,8 @@ describe("renderComposition shell", () => {
     expect(calls.frameSequences).toHaveLength(1);
     expect(calls.frameSequences[0]?.plan.htmlLayers).toHaveLength(1);
     expect(calls.ffmpeg).toHaveLength(1);
-    expect(calls.ffmpeg[0]?.frameSequence).toEqual({
-      framePattern: "/tmp/vbaas-test/frames/frame-%06d.png",
-      frameRate: 30,
+    expect(calls.ffmpeg[0]?.encodedVideo).toEqual({
+      path: "/tmp/vbaas-test/frames/webcodecs-video.mp4",
     });
   });
 
@@ -126,9 +125,8 @@ describe("renderComposition shell", () => {
         text: "Caption cue",
       })
     );
-    expect(calls.ffmpeg[0]?.frameSequence).toEqual({
-      framePattern: "/tmp/vbaas-test/frames/frame-%06d.png",
-      frameRate: 30,
+    expect(calls.ffmpeg[0]?.encodedVideo).toEqual({
+      path: "/tmp/vbaas-test/frames/webcodecs-video.mp4",
     });
   });
 
@@ -176,9 +174,8 @@ describe("renderComposition shell", () => {
     expect(result.durationFrames).toBe(90);
     expect(calls.frameSequences).toHaveLength(1);
     expect(calls.ffmpeg).toHaveLength(1);
-    expect(calls.ffmpeg[0]?.frameSequence).toEqual({
-      framePattern: "/tmp/vbaas-test/frames/frame-%06d.png",
-      frameRate: 30,
+    expect(calls.ffmpeg[0]?.encodedVideo).toEqual({
+      path: "/tmp/vbaas-test/frames/webcodecs-video.mp4",
     });
   });
 });
@@ -204,6 +201,13 @@ const createRenderCalls = (): RenderCalls => ({
   frameSequences: [],
 });
 
+const emptyFrameStream = {
+  async *[Symbol.asyncIterator]() {
+    await Promise.resolve();
+    yield new Uint8Array();
+  },
+};
+
 const createTestRendererLayer = (calls: RenderCalls) =>
   Layer.mergeAll(
     AssetResolver.Passthrough,
@@ -214,12 +218,31 @@ const createTestRendererLayer = (calls: RenderCalls) =>
         }),
     }),
     Layer.succeed(FrameSequenceRenderer, {
+      renderEncodedVideo: (input) =>
+        Effect.sync(() => {
+          calls.frameSequences.push(input);
+          return {
+            path: `${input.outputDirectory}/webcodecs-video.mp4`,
+          };
+        }),
       renderFrameSequence: (input) =>
         Effect.sync(() => {
           calls.frameSequences.push(input);
           return {
             framePattern: `${input.outputDirectory}/frame-%06d.png`,
             frameRate: input.plan.canvas.fps,
+          };
+        }),
+      renderFrameStream: (input) =>
+        Effect.sync(() => {
+          calls.frameSequences.push({
+            outputDirectory: "/tmp/vbaas-test/frames",
+            plan: input.plan,
+          });
+
+          return {
+            frameRate: input.plan.canvas.fps,
+            frames: emptyFrameStream,
           };
         }),
     }),

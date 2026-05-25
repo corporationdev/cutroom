@@ -23,6 +23,7 @@
   },
   "dependencies": {
     "effect": "catalog:",
+    "mediabunny": "^1.41.0",
     "puppeteer-core": "^24.43.1"
   },
   "devDependencies": {

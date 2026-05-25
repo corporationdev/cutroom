@@ -57,13 +57,13 @@ export const renderComposition = (
 
     yield* tempDirectory.withTempDirectory((tempDir) =>
       Effect.gen(function* () {
-        const frameSequence = yield* frameSequenceRenderer.renderFrameSequence({
+        const encodedVideo = yield* frameSequenceRenderer.renderEncodedVideo({
           outputDirectory: `${tempDir}/frames`,
           plan,
         });
 
         yield* ffmpeg.render({
-          frameSequence,
+          encodedVideo,
           plan,
           quality: input.quality,
         });
